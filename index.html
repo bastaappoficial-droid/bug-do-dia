@@ -1,4 +1,4 @@
-<!doctype html>
+ <!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -535,24 +535,24 @@ const TRECHOS = [
 /* Cada um recebe a linha e devolve a linha estragada + a explicação,
    ou null se não couber naquela linha. */
 const DEFEITOS = [
-  { nome:'ponto e virgula',
+  { nome:'ponto e virgula', familia:'pontuacao',
     aplicar(l){
       if(!/;\s*$/.test(l)) return null;
       if(/^\s*(for|if|while)\s*\(/.test(l)) return null;
       return { linha: l.replace(/;\s*$/,''), tipo:"SyntaxError", msg:"esperava ';' no fim da instrucao", nota:"Faltou o ponto e virgula." };
     }},
-  { nome:'atribuicao no if',
+  { nome:'atribuicao no if', familia:'logica',
     aplicar(l){
       if(!/^\s*(if|} else if)\s*\(/.test(l)) return null;
       if(!/===|==/.test(l)) return null;
       return { linha: l.replace(/===|==/,'='), tipo:"Aviso", msg:"atribuicao dentro da condicao", nota:"Um sinal de igual so atribui em vez de comparar. Devia ser === ." };
     }},
-  { nome:'length',
+  { nome:'length', familia:'digitacao',
     aplicar(l){
       if(!/\.length\b/.test(l)) return null;
       return { linha: l.replace(/\.length\b/,'.lenght'), tipo:"TypeError", msg:"undefined nao e um numero", nota:"length escrito errado: virou lenght." };
     }},
-  { nome:'parenteses',
+  { nome:'parenteses', familia:'pontuacao',
     aplicar(l){
       if(!/\)\s*[;{]?\s*$/.test(l)) return null;
       if((l.match(/\(/g)||[]).length !== (l.match(/\)/g)||[]).length) return null;
@@ -561,22 +561,22 @@ const DEFEITOS = [
   /* `chave` = a palavra estragada continua pintada como palavra-chave.
      Sem isso, `cosnt` perdia a cor roxa e o jogo virava "ache a palavra
      sem cor" — dava a resposta de graça a quem percebesse. */
-  { nome:'const',
+  { nome:'const', familia:'digitacao',
     aplicar(l){
       if(!/^\s*const\s/.test(l)) return null;
       return { linha: l.replace(/^(\s*)const\s/,'$1cosnt '), chave:'cosnt', tipo:"SyntaxError", msg:"token inesperado", nota:"const escrito errado: cosnt." };
     }},
-  { nome:'function',
+  { nome:'function', familia:'digitacao',
     aplicar(l){
       if(!/\bfunction\b/.test(l)) return null;
       return { linha: l.replace(/\bfunction\b/,'funtion'), chave:'funtion', tipo:"SyntaxError", msg:"token inesperado", nota:"function escrito errado: funtion." };
     }},
-  { nome:'return',
+  { nome:'return', familia:'digitacao',
     aplicar(l){
       if(!/^\s*return\s/.test(l)) return null;
       return { linha: l.replace(/^(\s*)return\s/,'$1retrun '), chave:'retrun', tipo:"SyntaxError", msg:"token inesperado", nota:"return escrito errado: retrun." };
     }},
-  { nome:'igual no objeto',
+  { nome:'igual no objeto', familia:'logica',
     aplicar(l){
       /* apaga o conteudo das aspas antes de procurar, senao um
          'Frete: R$ ' dentro de um texto viraria falso positivo */
@@ -588,7 +588,7 @@ const DEFEITOS = [
                tipo:"SyntaxError", msg:"token inesperado '='",
                nota:"Dentro de um objeto e dois-pontos, nao igual." };
     }},
-  { nome:'aspas',
+  { nome:'aspas', familia:'pontuacao',
     aplicar(l){
       const m = l.match(/'([^']*)'/);
       if(!m) return null;
@@ -613,12 +613,17 @@ function montarRodadas(dia){
                   .slice(0,5)
                   .sort((a,b)=>TRECHOS[a].linhas.length - TRECHOS[b].linhas.length);
   const rodadas = [];
-  /* o mesmo tipo de defeito duas vezes no mesmo dia deixa o jogo chato */
+  /* Contar so pelo nome do defeito nao bastava: const, function, return e
+     length tem nomes diferentes mas, pra quem joga, sao a mesma coisa
+     (palavra escrita errada). Dia 12/09 saiu com 4 dos 5 assim e virou
+     caca-palavras. Agora o peso e por FAMILIA, e o nome so desempata. */
   const usados = new Set();
+  const porFamilia = {};
+  const peso = d => (porFamilia[d.familia]||0) * 10 + (usados.has(d.nome) ? 1 : 0);
 
   for(const idx of ordem){
     const trecho = TRECHOS[idx];
-    const defs = embaralhar(DEFEITOS, rnd).sort((a,b)=> (usados.has(a.nome)?1:0) - (usados.has(b.nome)?1:0));
+    const defs = embaralhar(DEFEITOS, rnd).sort((a,b)=> peso(a) - peso(b));
     let feito = null;
 
     for(const def of defs){
@@ -631,6 +636,7 @@ function montarRodadas(dia){
       linhas[alvo] = r.linha;
       feito = { arquivo:trecho.arquivo, linhas, bug:alvo, tipo:r.tipo, msg:r.msg, nota:r.nota, chave:r.chave||null, original:trecho.linhas[alvo] };
       usados.add(def.nome);
+      porFamilia[def.familia] = (porFamilia[def.familia]||0) + 1;
       break;
     }
     if(feito) rodadas.push(feito);
