@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug do Dia</title>
+<meta name="description" content="Um bug por dia. Ache a linha errada antes que o tempo suba. O mesmo enigma para todo mundo, todo dia.">
+<meta property="og:title" content="Bug do Dia">
+<meta property="og:description" content="Um bug por dia. Ache a linha errada.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+:root{
+  --ground:#14121B;
+  --panel:#1C1926;
+  --panel-2:#232030;
+  --line:#2E2A3C;
+  --text:#D8D3E4;
+  --muted:#837C97;
+  --dim:#5C566E;
+  --amber:#E8A33D;
+  --amber-soft:#3A2E1A;
+  --red:#E86A6A;
+  --red-soft:#3A1F24;
+  --green:#6FCF97;
+  --green-soft:#1C3328;
+  --kw:#B69BE8;
+  --str:#8FBF7F;
+  --num:#E0A96D;
+  --fn:#7FB4E8;
+  --cmt:#565073;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'Archivo',system-ui,-apple-system,Segoe UI,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ground);color:var(--text);
+  font-family:var(--sans);font-size:16px;line-height:1.5;
+  padding-inline:16px;padding-block:28px 48px;
+  display:flex;flex-direction:column;align-items:center;gap:22px;
+  min-height:100vh;
+}
+.wrap{width:100%;max-width:720px;display:flex;flex-direction:column;gap:22px}
+
+/* ---------- topo ---------- */
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{
+  font-family:var(--sans);font-weight:800;font-size:clamp(26px,6vw,34px);
+  letter-spacing:-.02em;margin:0;color:var(--text);text-wrap:balance;
+}
+h1 span{color:var(--amber)}
+.edicao{
+  font-family:var(--mono);font-size:12px;color:var(--muted);
+  letter-spacing:.08em;text-transform:uppercase;font-variant-numeric:tabular-nums;
+}
+.sub{margin:0;color:var(--muted);font-size:14.5px;max-width:58ch}
+
+/* ---------- barra de estado ---------- */
+.hud{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  font-family:var(--mono);font-size:13px;color:var(--muted);
+  border-bottom:1px solid var(--line);padding-bottom:10px;flex-wrap:wrap;
+}
+.hud b{color:var(--text);font-weight:500}
+.pontos{display:flex;gap:5px}
+.pt{width:11px;height:11px;border-radius:2px;background:var(--line)}
+.pt.ok{background:var(--green)}
+.pt.mid{background:var(--amber)}
+.pt.bad{background:var(--red)}
+.pt.now{box-shadow:0 0 0 2px var(--amber);background:var(--panel-2)}
+.cron{font-variant-numeric:tabular-nums;color:var(--amber);font-weight:700;font-size:15px}
+
+/* ---------- editor ---------- */
+.editor{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;box-shadow:0 18px 40px -28px #000;
+}
+.aba{
+  display:flex;align-items:center;gap:9px;background:var(--panel-2);
+  border-bottom:1px solid var(--line);padding:0 12px;
+}
+.aba .nome{
+  font-family:var(--mono);font-size:12.5px;color:var(--text);
+  padding:9px 10px;border-bottom:2px solid var(--amber);margin-bottom:-1px;
+}
+.aba .dot{width:9px;height:9px;border-radius:50%;background:var(--amber);opacity:.55}
+.codigo{overflow-x:auto;padding:10px 0}
+.linha{
+  display:flex;width:100%;border:0;background:none;text-align:left;
+  font-family:var(--mono);font-size:13.5px;line-height:1.75;color:var(--text);
+  cursor:pointer;padding:0;transition:background .12s;
+}
+.linha .n{
+  flex:0 0 46px;text-align:right;padding-right:14px;color:var(--dim);
+  user-select:none;font-variant-numeric:tabular-nums;
+}
+.linha .c{white-space:pre;padding-right:18px}
+.linha:hover{background:#201D2B}
+.linha:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.travado .linha{cursor:default}
+.travado .linha:hover{background:none}
+.linha.errou{background:var(--red-soft);animation:tremer .3s}
+.linha.achou{background:var(--green-soft)}
+.linha.achou .n{color:var(--green)}
+@keyframes tremer{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.rodape-ed{
+  display:flex;justify-content:space-between;gap:10px;
+  background:var(--panel-2);border-top:1px solid var(--line);
+  padding:7px 14px;font-family:var(--mono);font-size:11.5px;color:var(--dim);
+}
+/* cores de sintaxe */
+.kw{color:var(--kw)}.str{color:var(--str)}.num{color:var(--num)}
+.fn{color:var(--fn)}.cmt{color:var(--cmt);font-style:italic}
+
+/* ---------- revelação ---------- */
+.diag{
+  border-left:3px solid var(--amber);background:var(--amber-soft);
+  padding:12px 14px;border-radius:0 8px 8px 0;
+  font-family:var(--mono);font-size:13px;color:var(--text);
+}
+.diag .tipo{color:var(--amber);font-weight:700}
+.diag .seta{color:var(--muted);display:block;margin-top:5px;white-space:pre-wrap}
+
+/* ---------- botões ---------- */
+.btn{
+  font-family:var(--sans);font-weight:600;font-size:15px;
+  background:var(--amber);color:#1A1408;border:0;border-radius:8px;
+  padding:13px 20px;cursor:pointer;transition:filter .15s;
+}
+.btn:hover{filter:brightness(1.08)}
+.btn:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.btn.vazado{background:none;color:var(--text);border:1px solid var(--line)}
+.btn.vazado:hover{background:var(--panel-2);filter:none}
+.acoes{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ---------- resultado ---------- */
+.fim{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:22px;display:flex;flex-direction:column;gap:14px;
+}
+.fim h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
+.placar{
+  font-family:var(--mono);font-size:15px;color:var(--text);
+  display:flex;gap:18px;flex-wrap:wrap;font-variant-numeric:tabular-nums;
+}
+.placar i{color:var(--muted);font-style:normal;font-size:12px;display:block;text-transform:uppercase;letter-spacing:.07em}
+.quadro{
+  font-family:var(--mono);font-size:14px;line-height:1.7;white-space:pre-wrap;
+  background:var(--ground);border:1px dashed var(--line);border-radius:8px;padding:14px;
+}
+.volta{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- lista ---------- */
+.lista{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;
+  display:flex;flex-direction:column;gap:10px;
+}
+.lista h3{margin:0;font-size:16px;font-weight:700}
+.lista p{margin:0;color:var(--muted);font-size:14px}
+.campo{display:flex;gap:9px;flex-wrap:wrap}
+.campo input{
+  flex:1 1 220px;background:var(--ground);border:1px solid var(--line);
+  border-radius:8px;padding:12px 13px;color:var(--text);
+  font-family:var(--mono);font-size:14px;
+}
+.campo input:focus{outline:2px solid var(--amber);outline-offset:-1px}
+.lgpd{font-size:12px;color:var(--dim);margin:0}
+
+footer{
+  color:var(--dim);font-size:12.5px;text-align:center;
+  border-top:1px solid var(--line);padding-top:16px;
+}
+footer a{color:var(--muted)}
+.oculto{display:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:420px){
+  .linha{font-size:12.5px}
+  .linha .n{flex-basis:38px;padding-right:10px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Bug do <span>Dia</span></h1>
+    <div class="edicao" id="edicao">#000</div>
+  </header>
+  <p class="sub" id="sub">Cinco trechos de código. Em cada um, uma linha está errada. Ache e clique nela. O relógio não para, e você só joga uma vez por dia.</p>
+
+  <div class="hud">
+    <div>Rodada <b id="rodada">1</b>/5</div>
+    <div class="pontos" id="pontos"></div>
+    <div class="cron" id="cron">0:00</div>
+  </div>
+
+  <div class="editor" id="editor">
+    <div class="aba"><span class="dot"></span><span class="nome" id="arquivo">arquivo.js</span></div>
+    <div class="codigo" id="codigo"></div>
+    <div class="rodape-ed">
+      <span id="dica">clique na linha com o erro</span>
+      <span id="erros">0 erros</span>
+    </div>
+  </div>
+
+  <div class="diag oculto" id="diag"></div>
+
+  <div class="acoes oculto" id="acoes">
+    <button class="btn" id="proxima">Próxima rodada</button>
+  </div>
+
+  <section class="fim oculto" id="fim">
+    <h2 id="titulofim">Acabou por hoje</h2>
+    <div class="placar">
+      <div><i>Tempo</i><span id="fimTempo">0:00</span></div>
+      <div><i>Acertos de primeira</i><span id="fimAcertos">0/5</span></div>
+      <div><i>Sequência</i><span id="fimSeq">1 dia</span></div>
+    </div>
+    <div class="quadro" id="quadro"></div>
+    <div class="acoes">
+      <button class="btn" id="copiar">Copiar resultado</button>
+      <button class="btn vazado" id="rever">Ver os erros de hoje</button>
+    </div>
+    <div class="volta" id="volta"></div>
+  </section>
+
+  <section class="lista oculto" id="lista">
+    <h3>Quer o bug de amanhã no e-mail?</h3>
+    <p>Um enigma por dia, de manhã. Sem propaganda, sem enrolação.</p>
+    <div class="campo">
+      <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" aria-label="Seu e-mail">
+      <button class="btn" id="assinar">Quero receber</button>
+    </div>
+    <p class="lgpd" id="lgpd">Guardamos só o seu e-mail, e só para mandar o enigma do dia. Não repassamos para ninguém, e dá para sair a qualquer momento respondendo qualquer mensagem.</p>
+  </section>
+
+  <footer>
+    Um bug novo todo dia, à meia-noite. O mesmo para todo mundo.<br>
+    Feito por Eden Santos Teixeira
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   Bug do Dia
+   Página estática: o enigma do dia é calculado a partir da data,
+   então o mesmo dia dá o mesmo enigma em qualquer aparelho, sem
+   servidor nenhum.
+   ============================================================ */
+
+/* Cole aqui a URL do seu Apps Script para ligar a captura de e-mail.
+   Enquanto estiver vazia, a seção nem aparece — melhor não existir
+   do que existir quebrada. */
+const ENDPOINT_EMAIL = '';
+
+/* ---------- data e sorteio determinístico ---------- */
+const ESTREIA = Date.UTC(2026, 8, 12); // 12/09/2026 = edição #1
+
+function hojeLocal(){
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function chaveDia(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function numeroEdicao(d){
+  const dias = Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - ESTREIA) / 86400000);
+  return dias + 1;
+}
+/* gerador pseudoaleatório com semente (mulberry32) */
+function semear(s){
+  return function(){
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- os trechos de código ---------- */
+/* Nomes em português de propósito: é assim que se escreve código no
+   Brasil, e quem joga reconhece o próprio trabalho na tela. */
+const TRECHOS = [
+{arquivo:'carrinho.js', linhas:[
+"function calcularTotal(itens) {",
+"  let total = 0;",
+"  for (let i = 0; i < itens.length; i++) {",
+"    total += itens[i].preco * itens[i].quantidade;",
+"  }",
+"  return total;",
+"}",
+"",
+"const carrinho = [",
+"  { nome: 'Caneca', preco: 29.9, quantidade: 2 },",
+"  { nome: 'Camiseta', preco: 79.0, quantidade: 1 }",
+"];",
+"",
+"console.log(calcularTotal(carrinho));"
+]},
+{arquivo:'frete.js', linhas:[
+"function calcularFrete(cep, peso) {",
+"  const base = 12.5;",
+"  if (peso > 10) {",
+"    return base * 2;",
+"  }",
+"  if (cep.startsWith('3')) {",
+"    return base;",
+"  }",
+"  return base + 8;",
+"}",
+"",
+"const valor = calcularFrete('32315040', 3);",
+"console.log('Frete: R$ ' + valor.toFixed(2));"
+]},
+{arquivo:'login.js', linhas:[
+"const usuarios = ['ana', 'bruno', 'carla'];",
+"",
+"function entrar(nome, senha) {",
+"  if (!usuarios.includes(nome)) {",
+"    return 'usuario nao encontrado';",
+"  }",
+"  if (senha.length < 8) {",
+"    return 'senha muito curta';",
+"  }",
+"  return 'bem-vinda, ' + nome;",
+"}",
+"",
+"console.log(entrar('ana', '12345678'));"
+]},
+{arquivo:'pedidos.js', linhas:[
+"const pedidos = [",
+"  { id: 1, valor: 120, pago: true },",
+"  { id: 2, valor: 89, pago: false },",
+"  { id: 3, valor: 250, pago: true }",
+"];",
+"",
+"const pagos = pedidos.filter(function (p) {",
+"  return p.pago === true;",
+"});",
+"",
+"let soma = 0;",
+"for (const p of pagos) {",
+"  soma += p.valor;",
+"}",
+"",
+"console.log('Recebido: ' + soma);"
+]},
+{arquivo:'estoque.js', linhas:[
+"class Estoque {",
+"  constructor() {",
+"    this.itens = {};",
+"  }",
+"",
+"  adicionar(nome, quantidade) {",
+"    if (!this.itens[nome]) {",
+"      this.itens[nome] = 0;",
+"    }",
+"    this.itens[nome] += quantidade;",
+"  }",
+"",
+"  temEstoque(nome) {",
+"    return this.itens[nome] > 0;",
+"  }",
+"}",
+"",
+"const loja = new Estoque();",
+"loja.adicionar('caneca', 5);",
+"console.log(loja.temEstoque('caneca'));"
+]},
+{arquivo:'cpf.js', linhas:[
+"function limparCpf(texto) {",
+"  return texto.replace(/\\D/g, '');",
+"}",
+"",
+"function validarTamanho(cpf) {",
+"  const limpo = limparCpf(cpf);",
+"  if (limpo.length !== 11) {",
+"    return false;",
+"  }",
+"  return true;",
+"}",
+"",
+"console.log(validarTamanho('123.456.789-01'));"
+]},
+{arquivo:'relatorio.js', linhas:[
+"const vendas = [45, 120, 78, 300, 15, 92];",
+"",
+"const total = vendas.reduce(function (acc, v) {",
+"  return acc + v;",
+"}, 0);",
+"",
+"const media = total / vendas.length;",
+"const maior = Math.max.apply(null, vendas);",
+"",
+"console.log('Total: ' + total);",
+"console.log('Media: ' + media.toFixed(2));",
+"console.log('Maior venda: ' + maior);"
+]},
+{arquivo:'agenda.js', linhas:[
+"const compromissos = [];",
+"",
+"function agendar(titulo, hora) {",
+"  const existe = compromissos.some(function (c) {",
+"    return c.hora === hora;",
+"  });",
+"",
+"  if (existe) {",
+"    console.log('Horario ocupado');",
+"    return false;",
+"  }",
+"",
+"  compromissos.push({ titulo: titulo, hora: hora });",
+"  return true;",
+"}",
+"",
+"agendar('Dentista', '14:00');",
+"agendar('Reuniao', '14:00');"
+]},
+{arquivo:'notas.js', linhas:[
+"function situacao(nota) {",
+"  if (nota >= 7) {",
+"    return 'aprovada';",
+"  } else if (nota >= 5) {",
+"    return 'recuperacao';",
+"  } else {",
+"    return 'reprovada';",
+"  }",
+"}",
+"",
+"const turma = [9.5, 6.2, 3.8, 7.0];",
+"",
+"turma.forEach(function (nota, i) {",
+"  console.log('Aluno ' + (i + 1) + ': ' + situacao(nota));",
+"});"
+]},
+{arquivo:'api.js', linhas:[
+"async function buscarUsuario(id) {",
+"  const resposta = await fetch('/api/usuarios/' + id);",
+"",
+"  if (!resposta.ok) {",
+"    throw new Error('Falhou: ' + resposta.status);",
+"  }",
+"",
+"  const dados = await resposta.json();",
+"  return dados;",
+"}",
+"",
+"buscarUsuario(7).then(function (u) {",
+"  console.log(u.nome);",
+"});"
+]},
+{arquivo:'senha.js', linhas:[
+"function forcaDaSenha(senha) {",
+"  let pontos = 0;",
+"",
+"  if (senha.length >= 8) pontos++;",
+"  if (/[A-Z]/.test(senha)) pontos++;",
+"  if (/[0-9]/.test(senha)) pontos++;",
+"  if (/[^A-Za-z0-9]/.test(senha)) pontos++;",
+"",
+"  if (pontos <= 1) return 'fraca';",
+"  if (pontos === 2) return 'media';",
+"  return 'forte';",
+"}",
+"",
+"console.log(forcaDaSenha('Abacate2026!'));"
+]},
+{arquivo:'carrossel.js', linhas:[
+"let indice = 0;",
+"const slides = document.querySelectorAll('.slide');",
+"",
+"function mostrar(n) {",
+"  slides.forEach(function (s) {",
+"    s.classList.remove('ativo');",
+"  });",
+"  slides[n].classList.add('ativo');",
+"}",
+"",
+"function proximo() {",
+"  indice = (indice + 1) % slides.length;",
+"  mostrar(indice);",
+"}",
+"",
+"setInterval(proximo, 4000);",
+"mostrar(0);"
+]},
+{arquivo:'fila.js', linhas:[
+"class Fila {",
+"  constructor() {",
+"    this.itens = [];",
+"  }",
+"",
+"  entrar(pessoa) {",
+"    this.itens.push(pessoa);",
+"  }",
+"",
+"  chamar() {",
+"    if (this.itens.length === 0) {",
+"      return null;",
+"    }",
+"    return this.itens.shift();",
+"  }",
+"",
+"  tamanho() {",
+"    return this.itens.length;",
+"  }",
+"}",
+"",
+"const atendimento = new Fila();",
+"atendimento.entrar('Joana');",
+"console.log(atendimento.chamar());"
+]},
+{arquivo:'busca.js', linhas:[
+"function buscar(lista, termo) {",
+"  const alvo = termo.toLowerCase().trim();",
+"",
+"  return lista.filter(function (item) {",
+"    return item.nome.toLowerCase().includes(alvo);",
+"  });",
+"}",
+"",
+"const produtos = [",
+"  { nome: 'Teclado mecanico', preco: 350 },",
+"  { nome: 'Mouse sem fio', preco: 120 },",
+"  { nome: 'Monitor 24 polegadas', preco: 890 }",
+"];",
+"",
+"console.log(buscar(produtos, 'mouse'));"
+]}
+];
+
+/* ---------- os defeitos que a gente injeta ---------- */
+/* Cada um recebe a linha e devolve a linha estragada + a explicação,
+   ou null se não couber naquela linha. */
+const DEFEITOS = [
+  { nome:'ponto e virgula',
+    aplicar(l){
+      if(!/;\s*$/.test(l)) return null;
+      if(/^\s*(for|if|while)\s*\(/.test(l)) return null;
+      return { linha: l.replace(/;\s*$/,''), tipo:"SyntaxError", msg:"esperava ';' no fim da instrucao", nota:"Faltou o ponto e virgula." };
+    }},
+  { nome:'atribuicao no if',
+    aplicar(l){
+      if(!/^\s*(if|} else if)\s*\(/.test(l)) return null;
+      if(!/===|==/.test(l)) return null;
+      return { linha: l.replace(/===|==/,'='), tipo:"Aviso", msg:"atribuicao dentro da condicao", nota:"Um sinal de igual so atribui em vez de comparar. Devia ser === ." };
+    }},
+  { nome:'length',
+    aplicar(l){
+      if(!/\.length\b/.test(l)) return null;
+      return { linha: l.replace(/\.length\b/,'.lenght'), tipo:"TypeError", msg:"undefined nao e um numero", nota:"length escrito errado: virou lenght." };
+    }},
+  { nome:'parenteses',
+    aplicar(l){
+      if(!/\)\s*[;{]?\s*$/.test(l)) return null;
+      if((l.match(/\(/g)||[]).length !== (l.match(/\)/g)||[]).length) return null;
+      return { linha: l.replace(/\)(\s*[;{]?\s*)$/,'$1'), tipo:"SyntaxError", msg:"esperava ')' para fechar", nota:"Um parentese ficou aberto." };
+    }},
+  /* `chave` = a palavra estragada continua pintada como palavra-chave.
+     Sem isso, `cosnt` perdia a cor roxa e o jogo virava "ache a palavra
+     sem cor" — dava a resposta de graça a quem percebesse. */
+  { nome:'const',
+    aplicar(l){
+      if(!/^\s*const\s/.test(l)) return null;
+      return { linha: l.replace(/^(\s*)const\s/,'$1cosnt '), chave:'cosnt', tipo:"SyntaxError", msg:"token inesperado", nota:"const escrito errado: cosnt." };
+    }},
+  { nome:'function',
+    aplicar(l){
+      if(!/\bfunction\b/.test(l)) return null;
+      return { linha: l.replace(/\bfunction\b/,'funtion'), chave:'funtion', tipo:"SyntaxError", msg:"token inesperado", nota:"function escrito errado: funtion." };
+    }},
+  { nome:'return',
+    aplicar(l){
+      if(!/^\s*return\s/.test(l)) return null;
+      return { linha: l.replace(/^(\s*)return\s/,'$1retrun '), chave:'retrun', tipo:"SyntaxError", msg:"token inesperado", nota:"return escrito errado: retrun." };
+    }},
+  { nome:'igual no objeto',
+    aplicar(l){
+      /* apaga o conteudo das aspas antes de procurar, senao um
+         'Frete: R$ ' dentro de um texto viraria falso positivo */
+      const semTexto = l.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, m => ''.repeat(m.length));
+      const m = semTexto.match(/(?:^|[{,])(\s*)([A-Za-z_$][\w$]*):\s/);
+      if(!m) return null;
+      const pos = m.index + m[0].length - (m[2].length + 2);
+      return { linha: l.slice(0,pos) + m[2] + ' = ' + l.slice(pos + m[2].length + 2),
+               tipo:"SyntaxError", msg:"token inesperado '='",
+               nota:"Dentro de um objeto e dois-pontos, nao igual." };
+    }},
+  { nome:'aspas',
+    aplicar(l){
+      const m = l.match(/'([^']*)'/);
+      if(!m) return null;
+      return { linha: l.replace("'"+m[1]+"'", "'"+m[1]), tipo:"SyntaxError", msg:"texto sem fechamento", nota:"Uma aspas simples nao foi fechada." };
+    }}
+];
+
+/* ---------- monta o enigma do dia ---------- */
+function embaralhar(arr, rnd){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(rnd()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function montarRodadas(dia){
+  const semente = parseInt(dia.replace(/-/g,''),10);
+  const rnd = semear(semente);
+  const ordem = embaralhar(TRECHOS.map((_,i)=>i), rnd)
+                  .slice(0,5)
+                  .sort((a,b)=>TRECHOS[a].linhas.length - TRECHOS[b].linhas.length);
+  const rodadas = [];
+  /* o mesmo tipo de defeito duas vezes no mesmo dia deixa o jogo chato */
+  const usados = new Set();
+
+  for(const idx of ordem){
+    const trecho = TRECHOS[idx];
+    const defs = embaralhar(DEFEITOS, rnd).sort((a,b)=> (usados.has(a.nome)?1:0) - (usados.has(b.nome)?1:0));
+    let feito = null;
+
+    for(const def of defs){
+      const candidatas = [];
+      trecho.linhas.forEach((l,i)=>{ if(l.trim() && def.aplicar(l)) candidatas.push(i); });
+      if(!candidatas.length) continue;
+      const alvo = candidatas[Math.floor(rnd()*candidatas.length)];
+      const r = def.aplicar(trecho.linhas[alvo]);
+      const linhas = trecho.linhas.slice();
+      linhas[alvo] = r.linha;
+      feito = { arquivo:trecho.arquivo, linhas, bug:alvo, tipo:r.tipo, msg:r.msg, nota:r.nota, chave:r.chave||null, original:trecho.linhas[alvo] };
+      usados.add(def.nome);
+      break;
+    }
+    if(feito) rodadas.push(feito);
+  }
+  return rodadas;
+}
+
+/* ---------- realce de sintaxe ---------- */
+const PALAVRAS = /\b(function|return|const|let|var|if|else|for|of|in|while|new|class|this|async|await|throw|true|false|null|undefined|typeof)\b/;
+function escapar(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function realcar(linha, chaveExtra){
+  const ehChave = t => PALAVRAS.test(t) || (chaveExtra && t === chaveExtra);
+  const re = /(\/\/[^\n]*)|('[^']*'|"[^"]*"|`[^`]*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(?=\s*\()|([A-Za-z_$][\w$]*)/g;
+  let out = '', ultimo = 0, m;
+  while((m = re.exec(linha)) !== null){
+    out += escapar(linha.slice(ultimo, m.index));
+    const t = m[0];
+    if(m[1]) out += '<span class="cmt">'+escapar(t)+'</span>';
+    else if(m[2]) out += '<span class="str">'+escapar(t)+'</span>';
+    else if(m[3]) out += '<span class="num">'+escapar(t)+'</span>';
+    else if(m[4]) out += ehChave(t) ? '<span class="kw">'+escapar(t)+'</span>' : '<span class="fn">'+escapar(t)+'</span>';
+    else out += ehChave(t) ? '<span class="kw">'+escapar(t)+'</span>' : escapar(t);
+    ultimo = re.lastIndex;
+  }
+  out += escapar(linha.slice(ultimo));
+  return out || '&nbsp;';
+}
+
+/* ---------- estado ---------- */
+const DIA = chaveDia(hojeLocal());
+const EDICAO = numeroEdicao(hojeLocal());
+const RODADAS = montarRodadas(DIA);
+const CHAVE = 'bugdodia:' + DIA;
+
+let atual = 0, errosRodada = 0, resultados = [], inicio = 0, tick = null, jogando = false;
+
+const $ = id => document.getElementById(id);
+
+function fmt(ms){
+  const s = Math.floor(ms/1000);
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+function tempoTotal(){
+  const penal = resultados.reduce((a,r)=>a+r.erros,0) * 5000;
+  return (Date.now() - inicio) + penal;
+}
+
+function pintarPontos(){
+  const el = $('pontos'); el.innerHTML = '';
+  for(let i=0;i<RODADAS.length;i++){
+    const d = document.createElement('span');
+    d.className = 'pt';
+    const r = resultados[i];
+    if(r) d.classList.add(r.erros===0?'ok':r.erros===1?'mid':'bad');
+    else if(i===atual && jogando) d.classList.add('now');
+    el.appendChild(d);
+  }
+}
+
+function desenhar(){
+  const r = RODADAS[atual];
+  $('arquivo').textContent = r.arquivo;
+  $('rodada').textContent = atual+1;
+  $('erros').textContent = errosRodada === 1 ? '1 erro' : errosRodada + ' erros';
+  const cod = $('codigo');
+  cod.innerHTML = '';
+  cod.parentElement.classList.remove('travado');
+
+  r.linhas.forEach((linha,i)=>{
+    const b = document.createElement('button');
+    b.className = 'linha';
+    b.type = 'button';
+    b.innerHTML = '<span class="n">'+(i+1)+'</span><span class="c">'+realcar(linha, i===r.bug ? r.chave : null)+'</span>';
+    b.addEventListener('click', ()=>clicar(i,b));
+    cod.appendChild(b);
+  });
+  pintarPontos();
+}
+
+function clicar(i, el){
+  if(!jogando) return;
+  const r = RODADAS[atual];
+  if(i === r.bug){
+    jogando = false;
+    el.classList.add('achou');
+    resultados.push({ erros: errosRodada });
+    mostrarDiag(r, i);
+    $('acoes').classList.remove('oculto');
+    $('proxima').textContent = (atual === RODADAS.length-1) ? 'Ver meu resultado' : 'Próxima rodada';
+    $('codigo').parentElement.classList.add('travado');
+    pintarPontos();
+  } else {
+    errosRodada++;
+    el.classList.add('errou');
+    setTimeout(()=>el.classList.remove('errou'), 320);
+    $('erros').textContent = errosRodada === 1 ? '1 erro (+5s)' : errosRodada + ' erros (+' + (errosRodada*5) + 's)';
+  }
+}
+
+function mostrarDiag(r, i){
+  const col = Math.max(r.linhas[i].length - r.linhas[i].trimStart().length, 0);
+  const d = $('diag');
+  d.innerHTML = '<span class="tipo">'+r.tipo+':</span> '+r.msg+
+    '<span class="seta">' + r.arquivo + ':' + (i+1) + '\n' +
+    ' '.repeat(Math.min(col,20)) + '^\n' + r.nota + '</span>';
+  d.classList.remove('oculto');
+}
+
+function proxima(){
+  $('diag').classList.add('oculto');
+  $('acoes').classList.add('oculto');
+  atual++;
+  if(atual >= RODADAS.length){ terminar(); return; }
+  errosRodada = 0;
+  jogando = true;
+  desenhar();
+}
+
+/* ---------- fim ---------- */
+function quadroDoDia(){
+  const q = resultados.map(r => r.erros===0?'🟩':r.erros===1?'🟨':'🟥').join('');
+  const acertos = resultados.filter(r=>r.erros===0).length;
+  return '⌨️ Bug do Dia #' + EDICAO + '\n' + q + '  ' + acertos + '/' + resultados.length + ' · ' + fmt(tempoFinal);
+}
+
+let tempoFinal = 0;
+
+function calcularSequencia(){
+  let seq = 1;
+  try{
+    const ontem = new Date(hojeLocal()); ontem.setDate(ontem.getDate()-1);
+    const ant = localStorage.getItem('bugdodia:ultimo');
+    const n = parseInt(localStorage.getItem('bugdodia:seq')||'0',10);
+    if(ant === chaveDia(ontem) && n>0) seq = n+1;
+    localStorage.setItem('bugdodia:ultimo', DIA);
+    localStorage.setItem('bugdodia:seq', String(seq));
+  }catch(e){}
+  return seq;
+}
+
+function terminar(salvo){
+  if(tick) clearInterval(tick);
+  jogando = false;
+  $('editor').classList.add('oculto');
+  $('diag').classList.add('oculto');
+  document.querySelector('.hud').classList.add('oculto');
+  $('sub').classList.add('oculto');
+
+  if(!salvo){
+    tempoFinal = tempoTotal();
+    try{
+      localStorage.setItem(CHAVE, JSON.stringify({ t: tempoFinal, r: resultados }));
+    }catch(e){}
+    var seq = calcularSequencia();
+  } else {
+    tempoFinal = salvo.t; resultados = salvo.r;
+    var seq = parseInt(localStorage.getItem('bugdodia:seq')||'1',10);
+  }
+
+  const acertos = resultados.filter(r=>r.erros===0).length;
+  $('fimTempo').textContent = fmt(tempoFinal);
+  $('fimAcertos').textContent = acertos + '/' + resultados.length;
+  $('fimSeq').textContent = seq + (seq===1?' dia':' dias');
+  $('titulofim').textContent = acertos === resultados.length ? 'Cinco de cinco. Limpo.'
+                              : acertos === 0 ? 'Hoje ele te pegou.'
+                              : 'Resultado de hoje';
+  $('quadro').textContent = quadroDoDia();
+  $('fim').classList.remove('oculto');
+  if(ENDPOINT_EMAIL) $('lista').classList.remove('oculto');
+  contarVolta();
+}
+
+function contarVolta(){
+  const alvo = new Date(hojeLocal()); alvo.setDate(alvo.getDate()+1);
+  function passo(){
+    const falta = alvo - new Date();
+    if(falta <= 0){ $('volta').textContent = 'O bug de hoje já está no ar. Atualize a página.'; return; }
+    const h = Math.floor(falta/3600000), m = Math.floor(falta%3600000/60000), s = Math.floor(falta%60000/1000);
+    $('volta').textContent = 'Próximo bug em ' + h + 'h ' + String(m).padStart(2,'0') + 'm ' + String(s).padStart(2,'0') + 's';
+  }
+  passo(); setInterval(passo, 1000);
+}
+
+/* ---------- botões ---------- */
+$('proxima').addEventListener('click', proxima);
+
+$('copiar').addEventListener('click', async ()=>{
+  const txt = quadroDoDia() + '\n' + location.href;
+  try{
+    await navigator.clipboard.writeText(txt);
+    $('copiar').textContent = 'Copiado';
+    setTimeout(()=>$('copiar').textContent='Copiar resultado', 1800);
+  }catch(e){
+    $('quadro').textContent = txt;
+    $('copiar').textContent = 'Selecione e copie acima';
+  }
+});
+
+$('rever').addEventListener('click', ()=>{
+  const cx = document.createElement('div');
+  cx.className = 'diag';
+  cx.innerHTML = RODADAS.map((r,i)=>'<b>'+(i+1)+'. '+r.arquivo+'</b> — linha '+(r.bug+1)+': '+r.nota).join('<br>');
+  $('fim').appendChild(cx);
+  $('rever').disabled = true;
+  $('rever').textContent = 'Erros de hoje abaixo';
+});
+
+$('assinar').addEventListener('click', async ()=>{
+  const v = $('email').value.trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ $('email').focus(); return; }
+  $('assinar').disabled = true; $('assinar').textContent = 'Enviando…';
+  try{
+    await fetch(ENDPOINT_EMAIL, { method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ email:v, edicao:EDICAO, dia:DIA }) });
+    $('assinar').textContent = 'Pronto';
+    $('lgpd').textContent = 'Anotado. Amanhã de manhã o enigma chega aí.';
+  }catch(e){
+    $('assinar').disabled = false; $('assinar').textContent = 'Tentar de novo';
+  }
+});
+
+/* ---------- início ---------- */
+(function iniciar(){
+  $('edicao').textContent = '#' + EDICAO;
+
+  let salvo = null;
+  try{ salvo = JSON.parse(localStorage.getItem(CHAVE) || 'null'); }catch(e){}
+
+  if(salvo){
+    $('sub').textContent = 'Você já jogou hoje. O de amanhã sai à meia-noite.';
+    terminar(salvo);
+    return;
+  }
+  if(!RODADAS.length){
+    $('sub').textContent = 'Deu erro ao montar o enigma de hoje. Atualize a página.';
+    return;
+  }
+
+  inicio = Date.now();
+  jogando = true;
+  desenhar();
+  tick = setInterval(()=>{ $('cron').textContent = fmt(tempoTotal()); }, 200);
+})();
+</script>
+</body>
+</html>
